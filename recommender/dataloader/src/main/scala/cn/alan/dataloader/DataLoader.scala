@@ -1,9 +1,9 @@
 /**
   * 功能：将三个数据文件，加载到MongoDB和ElasticSearch中。
   * 步骤：
-  *     1、通过Spark读取数据文件，完成数据集的分割
-  *     2、使用Spark和MongoDB的驱动，将数据集写入到MongoDB中
-  *     3、使用Spark和ElasticSearch的驱动，将数据集写入到ElasticSearch中。
+  * 1、通过Spark读取数据文件，完成数据集的分割
+  * 2、使用Spark和MongoDB的驱动，将数据集写入到MongoDB中
+  * 3、使用Spark和ElasticSearch的驱动，将数据集写入到ElasticSearch中。
   */
 
 package cn.alan.dataloader
@@ -26,7 +26,6 @@ import org.elasticsearch.transport.client.PreBuiltTransportClient
 import cn.alan.common.model.Constant._
 
 
-
 /*
   DataLoader
   用Spark将数据加载到mongodb和ElasticSearch
@@ -41,14 +40,16 @@ object DataLoader {
   def main(args: Array[String]): Unit = {
     /**
       * 配置信息：
-      *     1、Spark相关配置信息
-      *     2、mongoDB服务器连接（mongodb://192.168.154.101:27017/recommender）、数据库（名为：recommender）
-      *     3、ES服务器及索引（名为recommender）
+      * 1、Spark相关配置信息
+      * 2、mongoDB服务器连接（mongodb://192.168.154.101:27017/recommender）、数据库（名为：recommender）
+      * 3、ES服务器及索引（名为recommender）
       */
 
     val config = Map(
       "spark.cores" -> "local[*]",
-      "mongo.uri" -> {"mongodb://192.168.154.101:27017/" + MONGODB_DATABASE},
+      "mongo.uri" -> {
+        "mongodb://192.168.154.101:27017/" + MONGODB_DATABASE
+      },
       "mongo.db" -> MONGODB_DATABASE,
       "es.httpHosts" -> "192.168.154.101:9200",
       "es.transportHosts" -> "192.168.154.101:9300",
@@ -85,7 +86,7 @@ object DataLoader {
     }).toDF()
 
     // 读取MongoDB连接信息
-    implicit val mongoConfig = MongoConfig(config.get("mongo.uri").get,config.get("mongo.db").get)
+    implicit val mongoConfig = MongoConfig(config.get("mongo.uri").get, config.get("mongo.db").get)
 
     // 需要将数据保存到MongoDB中
     storeDataInMongoDB(movieDF, ratingDF, tagDF)
@@ -112,16 +113,19 @@ object DataLoader {
     import org.apache.spark.sql.functions._
 
     /**
-      *  MID , Tags
-      *  1     tag1|tag2|tag3|tag4....
+      * MID , Tags
+      * 1     tag1|tag2|tag3|tag4....
       */
-    val newTag = tagDF.groupBy($"mid").agg(concat_ws("|",collect_set($"tag")).as("tags")).select("mid","tags")
+    val newTag = tagDF.groupBy($"mid").agg(concat_ws("|", collect_set($"tag")).as("tags")).select("mid", "tags")
 
     // 需要将处理后的Tag数据，和Moive数据融合，产生新的Movie数据，使用左连接，没有tags的电影也需要保留
-    val movieWithTagsDF = movieDF.join(newTag,Seq("mid","mid"),"left")
+    val movieWithTagsDF = movieDF.join(newTag, Seq("mid", "mid"), "left")
 
     // 声明了一个ES配置的隐式参数
-    implicit  val esConfig = ESConfig(config.get("es.httpHosts").get,config.get("es.transportHosts").get,config.get("es.index").get,config.get("es.cluster.name").get)
+    implicit val esConfig = ESConfig(config.get("es.httpHosts").get,
+      config.get("es.transportHosts").get,
+      config.get("es.index").get,
+      config.get("es.cluster.name").get)
 
     // 需要将新的Movie数据保存到ES中
     storeDataInES(movieWithTagsDF)
@@ -131,7 +135,7 @@ object DataLoader {
   }
 
   // 将数据保存到MongoDB中的方法
-  def storeDataInMongoDB(movieDF: DataFrame, ratingDF:DataFrame, tagDF:DataFrame)(implicit mongoConfig: MongoConfig): Unit = {
+  def storeDataInMongoDB(movieDF: DataFrame, ratingDF: DataFrame, tagDF: DataFrame)(implicit mongoConfig: MongoConfig): Unit = {
 
     //新建一个到MongoDB的连接
     val mongoClient = MongoClient(MongoClientURI(mongoConfig.uri))
@@ -181,10 +185,10 @@ object DataLoader {
   }
 
   // 将数据保存到ES中的方法
-  def storeDataInES(movieDF:DataFrame)(implicit eSConfig: ESConfig): Unit = {
+  def storeDataInES(movieDF: DataFrame)(implicit eSConfig: ESConfig): Unit = {
 
     //新建一个配置
-    val settings:Settings = Settings.builder().put("cluster.name",eSConfig.clustername).build()
+    val settings: Settings = Settings.builder().put("cluster.name", eSConfig.clustername).build()
 
     //新建一个ES的客户端
     val esClient = new PreBuiltTransportClient(settings)
@@ -194,14 +198,14 @@ object DataLoader {
     //      "es.transportHosts" -> "192.168.154.101:9300"
     // 使用正则表达式将IP和端口号分拆开
     val REGEX_HOST_PORT = "(.+):(\\d+)".r
-    eSConfig.transportHosts.split(",").foreach{
-      case REGEX_HOST_PORT(host:String,port:String) => {
-        esClient.addTransportAddress(new InetSocketTransportAddress(InetAddress.getByName(host),port.toInt))
+    eSConfig.transportHosts.split(",").foreach {
+      case REGEX_HOST_PORT(host: String, port: String) => {
+        esClient.addTransportAddress(new InetSocketTransportAddress(InetAddress.getByName(host), port.toInt))
       }
     }
 
     //需要清除掉ES中遗留的数据
-    if(esClient.admin().indices().exists(new IndicesExistsRequest(eSConfig.index)).actionGet().isExists){
+    if (esClient.admin().indices().exists(new IndicesExistsRequest(eSConfig.index)).actionGet().isExists) {
       esClient.admin().indices().delete(new DeleteIndexRequest(eSConfig.index))
     }
     esClient.admin().indices().create(new CreateIndexRequest(eSConfig.index))
@@ -209,12 +213,12 @@ object DataLoader {
     //将数据写入到ES中
     movieDF
       .write
-      .option("es.nodes",eSConfig.httpHosts)
-      .option("es.http.timeout","100m")
-      .option("es.mapping.id","mid")
+      .option("es.nodes", eSConfig.httpHosts)
+      .option("es.http.timeout", "100m")
+      .option("es.mapping.id", "mid")
       .mode("overwrite")
       .format("org.elasticsearch.spark.sql")
-      .save(eSConfig.index+"/"+ES_INDEX)
+      .save(eSConfig.index + "/" + ES_INDEX)
 
     // 关闭客户端连接
     esClient.close()

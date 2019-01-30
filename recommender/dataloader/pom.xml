@@ -32,25 +32,20 @@
             <version>2.8.2</version>
         </dependency>
 
-        <!-- Spark的依赖引入 -->
+        <!-- Spark的依赖引入,spark-core和spark-sql -->
         <dependency>
             <groupId>org.apache.spark</groupId>
             <artifactId>spark-core_2.11</artifactId>
-
         </dependency>
         <dependency>
             <groupId>org.apache.spark</groupId>
             <artifactId>spark-sql_2.11</artifactId>
-
         </dependency>
         <!-- 引入Scala -->
         <dependency>
             <groupId>org.scala-lang</groupId>
             <artifactId>scala-library</artifactId>
-
         </dependency>
-
-
         <!-- 加入MongoDB的驱动 -->
         <!-- 用于代码方式连接MongoDB -->
         <dependency>
